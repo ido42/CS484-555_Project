@@ -4,7 +4,7 @@ import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 from scipy.signal import chirp, find_peaks, peak_widths
-
+from FaceDetection import *
 def find_pupil(image):
     # first find y
     diff_ver = np.zeros((np.shape(image[:, 0])[0] - 1, np.shape(image[0])[0]))
@@ -36,9 +36,15 @@ def rotate_face(img,left_pupil,right_pupil):
 
 
 # path to image in string, then upload to matrix
-img_path = os.path.abspath(os.path.join(os.getcwd(), "..", "CS484-555_Project", "images", "face3.jpg")).replace('\\', '/')
-face_img = cv2.imread(img_path)
-cv2.imshow("face 1", face_img)
+img_path = os.path.abspath(os.path.join(os.getcwd(), "..", "CS484-555_Project", "images", "face3_orig.jpg")).replace('\\', '/')
+img = cv2.imread(img_path)
+
+cv2.imshow("image", img)
+cv2.waitKey(0)
+
+# detect the faces
+face_img = detect_face(imagePath=img_path)
+cv2.imshow("face", face_img)
 cv2.waitKey(0)
 
 #percent by which the image is resized
@@ -52,7 +58,7 @@ height = int(face_img.shape[0] * scale_percent / 100)
 dsize = (width, height)
 
 # resize image
-face_img = cv2.resize(face_img, dsize)
+#face_img = cv2.resize(face_img, dsize)
 
 # convert to grayscale
 bw_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
@@ -123,23 +129,14 @@ for i in range(np.shape(mouth_region[:, 0])[0] - 1):
                          image_signed[i].reshape((1, np.size(mouth_region[i]))))
 
 edge = diff_ver.copy()
-cv2.imshow("mouth edges", diff_ver)
-cv2.waitKey(0)
 positions = np.where(diff_ver <= np.max(diff_ver)*0.6)
-edge[diff_ver < np.max(diff_ver)*0.15]=0
-edge[diff_ver > np.max(diff_ver)*0.15]=255
+edge[diff_ver < np.max(diff_ver)*0.2]=0
+edge[diff_ver > np.max(diff_ver)*0.2]=255
 
-cv2.imshow("mouth edges2", edge)
+cv2.imshow("mouth edges", edge)
 cv2.waitKey(0)
 
-vert_diff_summed = np.sum(diff_ver, axis=0)
-
-max_ver = np.where(vert_diff_summed == np.max(vert_diff_summed))
-mouth_y, mouth_x = int(max_ver[0][0]+y_left+0.85*ED), int((x_right_real+x_left)/2)
-cv2.circle(bw_img, (mouth_x, mouth_y), radius=0, color=255, thickness=5)
-
-cv2.imshow("mouth ",bw_img)
-cv2.waitKey(0)
+vert_diff_summed = np.sum(diff_ver, axis=1)
 
 peaks, _ = find_peaks(vert_diff_summed)
 results_half = peak_widths(vert_diff_summed, peaks, rel_height=0.5)
@@ -147,3 +144,9 @@ plt.plot(np.array(range(0,np.size(vert_diff_summed))), vert_diff_summed)
 plt.hlines(*results_half[1:], color="C2")
 plt.show()
 plt.close()
+
+widest_peak= peaks[np.where(results_half[0]==np.max(results_half[0]))][0]
+mouth_y, mouth_x = int(widest_peak+y_left+0.85*ED), int((x_right_real+x_left)/2)
+cv2.circle(bw_img, (mouth_x, mouth_y), radius=0, color=255, thickness=5)
+cv2.imshow("mouth ",bw_img)
+cv2.waitKey(0)
