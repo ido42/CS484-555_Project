@@ -48,6 +48,7 @@ def rotate_face(img,left_pupil,right_pupil):
 
 def find_roi (image, eye_distance, left_eye_loc, right_eye_loc,mouth_loc):  # eye distance is integer, rest are tuples (y,x)
     rows, cols, = np.shape(image)  # size of image
+    roi_size = 13
     # center locations of the features
     A_loc = (int(left_eye_loc[0]), int(left_eye_loc[1]*2/3))  # at the same row with the left eye, 2/3 distance from the beggining of the image
     A1_loc = (int(right_eye_loc[0]), int((2*right_eye_loc[1]+cols)/3))  # right eye, " " " ,2/3 distance from the end
@@ -68,14 +69,33 @@ def find_roi (image, eye_distance, left_eye_loc, right_eye_loc,mouth_loc):  # ey
     N_loc = (int((left_eye_loc[0]+right_eye_loc[0]+5*(H_loc[0]+H1_loc[0]))/12), int((H_loc[1]+H1_loc[1])/2))  # nose middle point
     K_loc = (int((N_loc[0]+4*mouth_loc[0])/5), mouth_loc[1])
     L_loc = (int((6*mouth_loc[0]-N_loc[0])/5), mouth_loc[1])
-    M_loc = (rows, mouth_loc[1])
+    M_loc = (rows-7, mouth_loc[1])
 
     locs = [A_loc,A1_loc,B_loc,B1_loc,D_loc,D1_loc,E_loc,E1_loc,F_loc,F1_loc,G_loc,G1_loc,H_loc,H1_loc,I_loc,J_loc,N_loc,K_loc,L_loc,M_loc]
+    rois=[]
     for loc_tuple in locs:
-        cv2.circle(image, (loc_tuple[1], loc_tuple[0]), radius=0, color=0, thickness=5)
-    cv2.imshow("é",image)
-    cv2.waitKey(0)
-    print("hi")
+        roi= image[int(loc_tuple[0]-np.floor(roi_size/2)):int(loc_tuple[0]+np.ceil(roi_size/2)),int(loc_tuple[1]-np.floor(roi_size/2)):int(loc_tuple[1]+np.ceil(roi_size/2))]
+        rois.append(roi)
+        img=image.copy()
+        i=cv2.circle(img, (loc_tuple[1], loc_tuple[0]), radius=0, color=0, thickness=5)
+        # percent by which the image is resized
+        scale_percent = 500
+
+        # calculate the 50 percent of original dimensions
+        width = int(roi.shape[1] * scale_percent / 100)
+        height = int(roi.shape[0] * scale_percent / 100)
+
+        # dsize
+        dsize = (width, height)
+
+        # resize image
+        roi_resized = cv2.resize(roi, dsize)
+        #cv2.imshow("é",roi_resized)
+        #cv2.imshow("marked", i)
+
+        #cv2.waitKey(0)
+
+    return rois
 
 
 # path to image in string, then upload to matrix
@@ -197,7 +217,7 @@ cv2.circle(face_img, (mouth_x, mouth_y), radius=0, color=(255, 0, 0), thickness=
 cv2.imshow("mouth ", face_img)
 cv2.waitKey(0)
 
-find_roi(bw_img, ED, (y_left, x_left-10), (y_right, x_right_real-10),(mouth_y, mouth_x-10))
+all_rois = find_roi(bw_img, ED, (y_left, x_left-10), (y_right, x_right_real-10),(mouth_y, mouth_x-10))
 #cv2.imwrite("face 3 detected.png",face_img)
 
 #mouthlen_div3 = int((x_right_real-x_left)/5)
