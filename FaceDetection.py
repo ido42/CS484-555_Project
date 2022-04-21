@@ -38,7 +38,7 @@ def detect_face(imagePath, cascadeClassifier="haarcascade_frontalface_alt.xml", 
 
     return face
 
-
+"""
 # define the image path
 image_path = "image.png"
 
@@ -55,4 +55,4 @@ detected_face = detect_face(imagePath=image_path)
 # display the face image
 cv2.imshow('Detected face', detected_face)
 cv2.waitKey(0)
-
+"""
