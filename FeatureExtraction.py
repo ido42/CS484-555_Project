@@ -7,9 +7,9 @@ import cv2
 def gabor_bank(size=13, no_orientation=8, no_freq=6):
     """
 
-    :param size:
-    :param no_orientation:
-    :param no_freq:
+    :param size: the size of the gabor filters (size-by-size)
+    :param no_orientation: the number of different orientations that filters will have
+    :param no_freq: the number of different frequencies that filters will have
     :return: a bank of 48 Gabor filters at 8 orientations and 6 spatial frequencies (2:12 pixels/cycle at 1⁄2 octave steps).
     """
     # define the Gabor parameters
@@ -53,8 +53,8 @@ def gabor_bank(size=13, no_orientation=8, no_freq=6):
             c_h = cv2.resize(np.real(h * 255 / np.max(np.real(h - np.min(h.real)))), (width, height))
 
             # display the filter
-            cv2.imshow("h", c_h)
-            cv2.waitKey()
+            #cv2.imshow("h", c_h)
+            #cv2.waitKey()
 
             # store the current filter in the filter bank
             filter_bank.append(h)
@@ -62,19 +62,18 @@ def gabor_bank(size=13, no_orientation=8, no_freq=6):
     return filter_bank
 
 
-def feature_extraction(filters_bank, ROIs, roi_size=13):
+def feature_extraction(filters_bank, ROIs):
     """
 
-    :param filters_bank:
-    :param ROIs:
-    :param roi_size:
-    :return:  #  in the result, each row belongs to one feature, each of them are 49 linearized images first is original, rest is with filters
+    :param filters_bank: a list consisting of gabor filters (in np array form), for this project the length is generally 48
+    :param ROIs: a list of images ROIs (in np array form), for this project the length is generally 20
+    :return:  in the result, each row belongs to one feature, each of them are 49 linearized images first is original, rest is with filters
     """
 
     # define the filter's parameters
     no_filters = len(filters_bank)
     no_ROI = len(ROIs)
-
+    roi_size = np.shape(ROIs[0])[0]
     # define a numpy array to store the vectors of features
     feature_vectors = np.zeros((no_ROI, (no_filters + 1) * roi_size * roi_size))
 
@@ -121,8 +120,8 @@ def feature_extraction(filters_bank, ROIs, roi_size=13):
             f_roi = cv2.resize(f_roi / np.max(f_roi) * 255, (width, height))
 
             # display the filtered ROI
-            cv2.imshow("ROI:" + str(idx_roi) + ", filter:" + str(f), f_roi.astype('uint8'))
-            cv2.waitKey()
+            #cv2.imshow("ROI:" + str(idx_roi) + ", filter:" + str(f), f_roi.astype('uint8'))
+            #cv2.waitKey()
 
             # print the filtering progress
             print("Filtering ROI " + str(idx_roi) + " with filter " + str(f))

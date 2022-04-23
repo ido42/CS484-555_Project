@@ -5,7 +5,7 @@ from scipy import signal
 import matplotlib.pyplot as plt
 from scipy.signal import chirp, find_peaks, peak_widths
 from FaceDetection import *
-
+from math import floor, ceil
 
 def find_pupil(image):
     # first find y
@@ -53,7 +53,7 @@ def rotate_face(img, left_pupil, right_pupil):
 def find_roi(image, eye_distance, left_eye_loc, right_eye_loc,
              mouth_loc):  # eye distance is integer, rest are tuples (y,x)
     rows, cols, = np.shape(image)  # size of image
-    roi_size = 13
+    roi_size = 37
     # center locations of the features
     A_loc = (int(left_eye_loc[0]), int(
         left_eye_loc[1] * 2 / 3))  # at the same row with the left eye, 2/3 distance from the beggining of the image
@@ -79,17 +79,19 @@ def find_roi(image, eye_distance, left_eye_loc, right_eye_loc,
              int((H_loc[1] + H1_loc[1]) / 2))  # nose middle point
     K_loc = (int((N_loc[0] + 4 * mouth_loc[0]) / 5), mouth_loc[1])
     L_loc = (int((6 * mouth_loc[0] - N_loc[0]) / 5), mouth_loc[1])
-    M_loc = (rows - 7, mouth_loc[1])
+    M_loc = (rows - ceil(roi_size/2), mouth_loc[1])
 
     locs = [A_loc, A1_loc, B_loc, B1_loc, D_loc, D1_loc, E_loc, E1_loc, F_loc, F1_loc, G_loc, G1_loc, H_loc, H1_loc,
             I_loc, J_loc, N_loc, K_loc, L_loc, M_loc]
     rois = []
+    img = image.copy()
+    i=0
     for loc_tuple in locs:
         roi = image[int(loc_tuple[0] - np.floor(roi_size / 2)):int(loc_tuple[0] + np.ceil(roi_size / 2)),
               int(loc_tuple[1] - np.floor(roi_size / 2)):int(loc_tuple[1] + np.ceil(roi_size / 2))]
         rois.append(roi)
-        img = image.copy()
-        i = cv2.circle(img, (loc_tuple[1], loc_tuple[0]), radius=0, color=0, thickness=5)
+
+        img = cv2.circle(img, (loc_tuple[1], loc_tuple[0]), radius=0, color=0, thickness=5)
         # percent by which the image is resized
         scale_percent = 500
 
@@ -99,12 +101,12 @@ def find_roi(image, eye_distance, left_eye_loc, right_eye_loc,
 
         # dsize
         dsize = (width, height)
-
+        i=i+1
         # resize image
-        roi_resized = cv2.resize(roi, dsize)
-        # cv2.imshow("é",roi_resized)
-        # cv2.imshow("marked", i)
+      #  roi_resized = cv2.resize(roi, dsize)
+     #   cv2.imshow(str(i),roi_resized)
+    #cv2.imshow("marked", img)
 
-        # cv2.waitKey(0)
+    cv2.waitKey(0)
 
-    return rois
+    return rois, locs

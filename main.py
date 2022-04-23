@@ -121,7 +121,7 @@ mouth_y, mouth_x = int(widest_peak + y_left + 0.85 * ED), int((x_right_real + x_
 #cv2.imshow("mouth ", face_img)
 #cv2.waitKey(0)
 
-all_rois = find_roi(bw_img, ED, (y_left, x_left - 10), (y_right, x_right_real - 10), (mouth_y, mouth_x - 10))
+all_rois, roi_locs = find_roi(bw_img, ED, (y_left, x_left - 10), (y_right, x_right_real - 10), (mouth_y, mouth_x - 10))
 
 # cv2.imwrite("face 3 detected.png",face_img)
 

@@ -31,7 +31,7 @@ def detect_face(imagePath, cascadeClassifier="haarcascade_frontalface_alt.xml", 
     column, row, width, height = detectedFace[0]
 
     # extract the face from the original image
-    face = original_image[row:row + width, column:column + height]
+    face = original_image[row:row + int(width*1.1), column:column + height]  # image is made longer to include the chin
 
     # save the detected face
     cv2.imwrite("detected_face.png", face)
