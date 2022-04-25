@@ -5,7 +5,7 @@ from scipy import signal
 import matplotlib.pyplot as plt
 from scipy.signal import chirp, find_peaks, peak_widths
 from FaceDetection import *
-from math import floor, ceil
+
 
 def find_pupil(image):
     # first find y
@@ -79,34 +79,40 @@ def find_roi(image, eye_distance, left_eye_loc, right_eye_loc,
              int((H_loc[1] + H1_loc[1]) / 2))  # nose middle point
     K_loc = (int((N_loc[0] + 4 * mouth_loc[0]) / 5), mouth_loc[1])
     L_loc = (int((6 * mouth_loc[0] - N_loc[0]) / 5), mouth_loc[1])
-    M_loc = (rows - ceil(roi_size/2), mouth_loc[1])
+    M_loc = (rows - 7, mouth_loc[1])
 
     locs = [A_loc, A1_loc, B_loc, B1_loc, D_loc, D1_loc, E_loc, E1_loc, F_loc, F1_loc, G_loc, G1_loc, H_loc, H1_loc,
             I_loc, J_loc, N_loc, K_loc, L_loc, M_loc]
     rois = []
-    img = image.copy()
-    i=0
+    i = 0
     for loc_tuple in locs:
         roi = image[int(loc_tuple[0] - np.floor(roi_size / 2)):int(loc_tuple[0] + np.ceil(roi_size / 2)),
               int(loc_tuple[1] - np.floor(roi_size / 2)):int(loc_tuple[1] + np.ceil(roi_size / 2))]
         rois.append(roi)
+        img = image.copy()
+        print(roi.shape)
 
-        img = cv2.circle(img, (loc_tuple[1], loc_tuple[0]), radius=0, color=0, thickness=5)
+
+        cv2.circle(img, (loc_tuple[1], loc_tuple[0]), radius=0, color=0, thickness=5)
+        cv2.imshow(f'image', img)
+        cv2.waitKey(0)
+
         # percent by which the image is resized
         scale_percent = 500
 
-        # calculate the 50 percent of original dimensions
+        # calculate the 500 percent of original dimensions
         width = int(roi.shape[1] * scale_percent / 100)
         height = int(roi.shape[0] * scale_percent / 100)
 
+
         # dsize
         dsize = (width, height)
-        i=i+1
+
         # resize image
-      #  roi_resized = cv2.resize(roi, dsize)
-     #   cv2.imshow(str(i),roi_resized)
-    #cv2.imshow("marked", img)
+        roi_resized = cv2.resize(roi, dsize)
+        cv2.imshow(f'roi{i}', roi_resized)
+        i= i+1
 
-    cv2.waitKey(0)
+        cv2.waitKey(0)
 
-    return rois, locs
+    return rois
