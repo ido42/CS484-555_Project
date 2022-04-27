@@ -9,7 +9,7 @@ import pandas as pd
 
 from sklearn.ensemble import AdaBoostRegressor
 from sklearn.tree import DecisionTreeRegressor
-
+import cv2
 import pickle
 
 
@@ -30,21 +30,22 @@ def save_model(model, model_save_path):
 
 
 def get_training_examples(image, landmark):
+
     x, y = landmark
     half_roi_size = 6
-    gt = image[x - half_roi_size:x + half_roi_size, y - half_roi_size:y + half_roi_size]
+    gt = image[x - half_roi_size:x + half_roi_size+1, y - half_roi_size:y + half_roi_size+1]
     x1 = x + 1
     x2 = x - 1
     y1 = y + 1
     y2 = y - 1
-    p1 = image[x1 - half_roi_size:x1 + half_roi_size, y - half_roi_size:y + half_roi_size]
-    p2 = image[x2 - half_roi_size:x2 + half_roi_size, y - half_roi_size:y + half_roi_size]
-    p3 = image[x - half_roi_size:x + half_roi_size, y1 - half_roi_size:y1 + half_roi_size]
-    p4 = image[x - half_roi_size:x + half_roi_size, y2 - half_roi_size:y2 + half_roi_size]
-    p5 = image[x1 - half_roi_size:x1 + half_roi_size, y1 - half_roi_size:y1 + half_roi_size]
-    p6 = image[x2 - half_roi_size:x2 + half_roi_size, y2 - half_roi_size:y2 + half_roi_size]
-    p7 = image[x1 - half_roi_size:x1 + half_roi_size, y2 - half_roi_size:y2 + half_roi_size]
-    p8 = image[x2 - half_roi_size:x2 + half_roi_size, y1 - half_roi_size:y1 + half_roi_size]
+    p1 = image[x1 - half_roi_size:x1 + half_roi_size + 1, y - half_roi_size:y + half_roi_size + 1]
+    p2 = image[x2 - half_roi_size:x2 + half_roi_size+1, y - half_roi_size:y + half_roi_size+1]
+    p3 = image[x - half_roi_size:x + half_roi_size+1, y1 - half_roi_size:y1 + half_roi_size+1]
+    p4 = image[x - half_roi_size:x + half_roi_size+1, y2 - half_roi_size:y2 + half_roi_size+1]
+    p5 = image[x1 - half_roi_size:x1 + half_roi_size+1, y1 - half_roi_size:y1 + half_roi_size+1]
+    p6 = image[x2 - half_roi_size:x2 + half_roi_size+1, y2 - half_roi_size:y2 + half_roi_size+1]
+    p7 = image[x1 - half_roi_size:x1 + half_roi_size+1, y2 - half_roi_size:y2 + half_roi_size+1]
+    p8 = image[x2 - half_roi_size:x2 + half_roi_size+1, y1 - half_roi_size:y1 + half_roi_size+1]
     print(x,y)
     print(image.shape)
     print(x1 - half_roi_size)
@@ -53,12 +54,38 @@ def get_training_examples(image, landmark):
     print(y1 + half_roi_size)
 
 
-
-
     # positive examples
+
     p_eg = np.array([gt, p1, p2, p3, p4, p5, p6, p7, p8])
+    p_eg_padded_list=[]
+    for reg in p_eg:
+        pad_x = 13-np.shape(reg)[1]
+        pad_y = 13-np.shape(reg)[0]
+        p_eg_padded_list.append(np.pad(reg, ((0, 0), (pad_y, pad_x)), 'constant'))
     print("p_eg", p_eg)
     print("p_eg", p_eg.shape)
+    p_eg_padded=np.asarray(p_eg_padded_list)
+
+    n_eg=[]
+    while len(n_eg)!=8:
+        x_err=random.randint(-2,2)
+        y_err=random.randint(-2,2)
+        ex = image[x+x_err - half_roi_size:x+x_err + half_roi_size + 1, y+y_err - half_roi_size:y+y_err + half_roi_size + 1]
+        pad_x = 13 - np.shape(ex)[1]
+        pad_y = 13 - np.shape(ex)[0]
+        ex = np.pad(ex, ((0, 0), (pad_y, pad_x)), 'constant')
+        if not(abs(x_err)==1and(y_err)==1):
+            n_eg.append(ex)
+    while len(n_eg)!=16:
+        x_rand=random.randint(-15,15)
+        y_rand=random.randint(-15,15)
+        ex = image[x+x_rand - half_roi_size:x+x_rand + half_roi_size + 1, y+y_rand - half_roi_size:y+y_rand + half_roi_size + 1]
+        pad_x = 13 - np.shape(ex)[1]
+        pad_y = 13 - np.shape(ex)[0]
+        ex = np.pad(ex, ((0, 0), (pad_y, pad_x)), 'constant')
+        if not(abs(x_rand)<=2and abs(y_rand)<=2):
+            n_eg.append(ex)
+    n_eg_fin=np.asarray(n_eg)
     """
     # the first set of negative examples 2 pixel apart from the ground truth
     x3 = x + 2
@@ -93,11 +120,26 @@ def get_training_examples(image, landmark):
    # n_eg = np.array([n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16])
 
     # true roi
-    true_roi = image[x - 18:x + 18, y - 18:y + 18]
+    true_roi = image[x - 18:x + 19, y - 18:y + 19]
+    pad_x = 37 - np.shape(true_roi)[1]
+    pad_y = 37 - np.shape(true_roi)[0]
+    true_roi=np.pad(true_roi, ((0, 0), (pad_y, pad_x)), 'constant')
 
-    return p_eg, n_eg, true_roi
+    return p_eg_padded, n_eg_fin, true_roi#, n_eg
 
 
+def filtered_patch(filtered_ROIs):
+    l= [12,13,14]
+    all_filtered_roi=[]
+    for r in filtered_ROIs:
+        one_roi_filtered=[]
+        for f in r:
+            for x in l:
+                for y in l:
+                    pos=f[y:y+13,x:x+13]
+                    one_roi_filtered.append(pos)
+            all_filtered_roi.append(one_roi_filtered)
+    return  all_filtered_roi
 
 def get_patch(image, landmark):
     # get landmark coordinates

@@ -26,7 +26,7 @@ def gabor_bank(size=13, no_orientation=8, no_freq=6):
             f0 = f_max / ((sqrt(2)) ** f)
 
             # generate the orientations
-            theta = ((o - 1) / no_orientation) * pi
+            theta = (o/no_orientation) * pi
 
             # define the filter's size
             x = np.repeat(np.asarray(range(-floor(size / 2), ceil(size / 2))).reshape(1, size), size, axis=0)
@@ -41,6 +41,7 @@ def gabor_bank(size=13, no_orientation=8, no_freq=6):
                 np.exp(-f0 ** 2 / gama ** 2 * x_p ** 2 - f0 ** 2 / eta ** 2 * y_p ** 2),
                 np.exp(2j * pi * f0 * x_p))
 
+            h2 = cv2.getGaborKernel(ksize=(size,size),sigma=gama/f0/sqrt(2),theta=theta,lambd=f0,gamma=gama/eta)
             # check the filters
             """"""
 
@@ -50,7 +51,7 @@ def gabor_bank(size=13, no_orientation=8, no_freq=6):
             height = int(h.shape[0] * scale_percent / 100)
 
             # normalize the filter values to 256 grayscale levels
-            c_h = cv2.resize(np.real(h * 255 / np.max(np.real(h - np.min(h.real)))), (width, height))
+            c_h = cv2.resize(np.real(h * 255 / np.max(np.real(h - np.min(np.abs(h))))), (width, height))
 
             # display the filter
             #cv2.imshow("h", c_h)
@@ -127,8 +128,8 @@ def feature_extraction(filters_bank, ROIs):
             print("Filtering ROI " + str(idx_roi) + " with filter " + str(f))
 
         filtered_ROIs_2D.append(filtered_roi_2D)
-
-    return feature_vectors
+        #cv2.waitKey()
+    return feature_vectors,filtered_ROIs_2D
 
 
 

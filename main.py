@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 import numpy as np
 
-from sklearn.ensemble import AdaBoostRegressor
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
 
 import pickle
 
@@ -18,15 +18,36 @@ from train import *
 from sklearn import metrics
 
 
-def get_images(images_dir):
+def get_train_images(images_dir):
     print("Reading the images from the dataset.")
     images = []
+    correct_img=[0,1,5,9,11,12,13,14,16,17,19,21,23,24,28,29,31,32,34,35,39,40,41,45,46,49,51,53,54,56,57,58,59,60,61,62,63,64,67,
+                 68,69,70,71,72,73,74,75,76,77,79,82,84,85,87,91,93,95,96,103,105,107,110,112,114,115,116,118,120,121,123,125,127,
+                 129,133,134,135,137,139,141,143,146,148,151,155,156,158,159,161,165,168,169,170,171,173,176,177,180,181,184,186,188,
+                 189,191,193,194,195,196,199,200,201,202,203,204,205,208,209,211,212,213,214,215,217,219,223,224,225,226,230,232,233,
+                 235,237,238,239,241,245,246,250,253,255,258,259,261,262,264,265,266,267,274,275,276,278,279,281,282,286,287,288,292,
+                 293,295,296,297,2698,299,301,305,307,308,309,318,319,322,323,324,328,330,332,333,334,335,336,338,339,340,342,344,347,
+                 349,350,353,356,359,363,365,366,368,369,371,374,375,376,377,379,384,385,387,389,390,395,396,397,398,400,403,404,406,413,
+                 414,417,418,419,427,428,435,437,438,439,442,444,445,447,449,452,455,457,460,466,468,471,473,474,475,476,477,478,479,
+                 484,486,488,491,492,493,495,496,500,501,504,505,507,515,516,518,520,523,526,527,539,542,547,551,554,558,563,564,566,
+                 567,568,569,570,571,574,576,580,583,586,587,588,593,595,598,599,601,606,610,611,613,616,621,622,623,626,631,637,638,
+                 639,640,641,642,645,650,652,655,665,667,668,670,674,676,678,679,700,702,703,708,714,715,716,718,720,728,732,734,738,
+                 741,743,744,747,750,754,755,770,771,772,773,780,785,787,788,789,791,793,797,800,802]
+    num_images=correct_img.copy()
+    absent=[52,119,136,256,312,315,424,485,494,572,615,633,647,691,711,792,801]
+    for i in range(len(correct_img)):
+        for a in absent:
+            if num_images[i]>a:
+                num_images[i]=num_images[i]-1
+
+
     for image_file in os.listdir(images_dir):
-        image_path = os.path.join(images_dir, image_file)
-        image = Image.open(image_path)
-        images.append(image)
+        if int(image_file[-7:-4]) in correct_img:
+            image_path = os.path.join(images_dir, image_file)
+            image = Image.open(image_path)
+            images.append(image)
     images = np.stack(images)
-    return images
+    return images,num_images
 
 
 def save_model(model, model_save_path):
@@ -57,7 +78,7 @@ filter_bank = gabor_bank()
 
 
 # get  images
-train_images = get_images(train_images_dir)
+train_images,train_nums = get_train_images(train_images_dir)
 test_images = get_images(test_images_dir)
 
 # get  landmarks
@@ -102,19 +123,20 @@ print(train_landmarks)
 
 # define a list to store the features for all the training images
 training_features = []
-
+all_positive=[]
+all_negative=[]
 # iterate over the training images
-for i in range(no_train_imgs):
+for i in range(len(train_nums)):
     # get the each image
     face_img = train_images[i]
 
     # get the corresponding landmarks
-    landmarks = np.array(train_landmarks)[i, :]
+    landmarks = np.array(train_landmarks)[train_nums[i], 2:]
 
     # create an array to store the landmarks for further processing - p_landmarks
-    p_landmarks = np.zeros((20, 2), dtype=np.int)
+    p_landmarks = np.zeros((19, 2), dtype=np.int)
     i = 0
-    for l_i in range(20):
+    for l_i in range(19):
         p_landmarks[l_i] = (landmarks[i], landmarks[i + 1])
         i = i + 2
 
@@ -123,99 +145,11 @@ for i in range(no_train_imgs):
 
     # convert to grayscale
     bw_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
-    cv2.imshow("orig_img ", bw_img)
-
+    #cv2.imshow("orig_img ", bw_img)
+    #cv2.waitKey()
 ###########################################  OLD CODE  must be put in a function ###############################################
-    rows, cols = np.shape(bw_img)
+    # (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x)=find_initial_points(bw_img)
 
-    # bw_copy = bw_img.copy()
-    # divide the picture into upper and lower halves
-    upper_face = bw_img[0:int(np.ceil(rows / 2)), :]
-    lower_face = bw_img[int(np.ceil(rows / 2)):, :]
-    # cv2.imshow("upper", upper_face)
-    # cv2.imshow("lower", lower_face)
-    # cv2.waitKey(0)
-
-    # divide the face into left and right (our left and right, not theirs)
-    upper_left = upper_face[:, 0:int(np.ceil(cols / 2))]
-    upper_right = upper_face[:, int(np.ceil(cols / 2)):]
-    # cv2.imshow("upper left", upper_left)
-    # cv2.imshow("upper right", upper_right)
-    # cv2.waitKey(0)
-
-    copy_left = upper_left.copy()
-    copy_right = upper_right.copy()
-
-    y_left, x_left = find_pupil(upper_left)
-    y_right, x_right = find_pupil(upper_right)
-    print(y_left, ", ", x_left)
-    print(y_right, ", ", x_right)
-
-    # the position of right pupil in the original image
-    x_right_real = x_right + np.size(upper_left[0])
-
-    # align the face so that the eye axis is parallel to horizon, if it is nearly parallel don't
-    if abs(y_left - y_right) > 1:
-        aligned = rotate_face(bw_img, (y_left, x_left), (y_right, x_right_real))
-        upper_face = aligned[0:int(np.ceil(rows / 2)), :]
-        upper_left = upper_face[:, 0:int(np.ceil(cols / 2))]
-        upper_right = upper_face[:, int(np.ceil(cols / 2)):]
-        y_left, x_left = find_pupil(upper_left)
-        y_right, x_right = find_pupil(upper_right)
-        print(y_left, ", ", x_left)
-        print(y_right, ", ", x_right)
-        # cv2.imshow("aligned", aligned)
-        bw_img = aligned
-
-    cv2.circle(copy_left, (x_left, y_left), radius=0, color=(0, 0, 255), thickness=5)
-    cv2.circle(copy_right, (x_right, y_right), radius=0, color=(0, 255, 0), thickness=5)
-    cv2.circle(face_img, (x_left, y_left), radius=0, color=(0, 0, 255), thickness=5)
-    cv2.circle(face_img, (x_right_real, y_right), radius=0, color=(0, 0, 255), thickness=5)
-
-    # cv2.imshow("eye l", copy_left)
-    # cv2.imshow("eye r", copy_right)
-    # cv2.imshow("eyes", bw_img)
-
-    ED = x_right_real - x_left  # eye distance
-
-    mouth_region = bw_img[y_left + int(0.85 * ED): y_left + int(1.5 * ED), x_left: x_right_real]
-    # cv2.imshow("mouth region", mouth_region)
-    # cv2.waitKey(0)
-
-    # find edge and threshold the mouth region
-    diff_ver = np.zeros((np.shape(mouth_region[:, 0])[0] - 1, np.shape(mouth_region[0])[0]))
-    image_signed = np.array(mouth_region, dtype=np.int8)
-    for i in range(np.shape(mouth_region[:, 0])[0] - 1):
-        diff_ver[i] = np.abs(image_signed[i + 1].reshape((1, np.size(mouth_region[i + 1]))) -
-                             image_signed[i].reshape((1, np.size(mouth_region[i]))))
-
-    edge = diff_ver.copy()
-    positions = np.where(diff_ver <= np.max(diff_ver) * 0.6)
-    edge[diff_ver < np.max(diff_ver) * 0.2] = 0
-    edge[diff_ver > np.max(diff_ver) * 0.2] = 255
-
-    # cv2.imwrite("mouth edges.png", edge)
-    # cv2.imshow("mouth edges", edge)
-    # cv2.waitKey(0)
-
-    vert_diff_summed = np.sum(diff_ver, axis=1)
-
-    peaks, _ = find_peaks(vert_diff_summed)
-    results_half = peak_widths(vert_diff_summed, peaks, rel_height=0.5)
-    # plt.plot(np.array(range(0, np.size(vert_diff_summed))), vert_diff_summed)
-    # plt.hlines(*results_half[1:], color="C2")
-    # plt.title("Vertical Histogram of the Mouth")
-    # plt.xlabel("Rows")
-    # plt.ylabel("Pixel Intesity Differences Summed Over Columns")
-
-    # plt.show()
-    # plt.close()
-
-    widest_peak = peaks[np.where(results_half[0] == np.max(results_half[0]))][0]
-    mouth_y, mouth_x = int(widest_peak + y_left + 0.85 * ED), int((x_right_real + x_left) / 2)
-    # cv2.circle(face_img, (mouth_x, mouth_y), radius=0, color=(255, 0, 0), thickness=5)
-    # cv2.imshow("mouth ", face_img)
-    # cv2.waitKey(0)
 
     # all_rois = find_roi(bw_img, ED, (y_left, x_left - 10), (y_right, x_right_real - 10), (mouth_y, mouth_x - 10))
 
@@ -233,36 +167,65 @@ for i in range(no_train_imgs):
     # cv2.imwrite("roi detected.png",bw_copy)
 
 ####################################  Training examples generation #####################################################
-    p_examples = np.zeros((20, 13, 13))  # positive patches 13x13
-    n_examples = np.zeros((20, 13, 13))  # negative patches 13x13
-    rois = np.zeros((20, 37, 37))  # 37x37 roi around the ground truth feature point
-    for l in p_landmarks:
+    p_examples = np.zeros((19,9, 13, 13))  # positive patches 13x13
+    n_examples = np.zeros((19,16, 13, 13))  # negative patches 13x13
+    rois = np.zeros((19, 37, 37))  # 37x37 roi around the ground truth feature point
+    bw_copy=bw_img.copy()
+
+    for l in range(len(p_landmarks)):
         # generate the examples based on the ground truth feature points
-        p_examples[l], n_examples[l], rois[l] = get_training_examples(bw_img, l)
+        #bw_copy=cv2.circle(bw_copy,p_landmarks[l], radius=0, color=255, thickness=5)
+        print(i,",",l)
+        try:
+            p_examples[l],n_examples[l],rois[l] = get_training_examples(bw_img, p_landmarks[l])
+        except:
+            pass
+    #cv2.imshow("marks",bw_copy)
+    #cv2.waitKey()
+    all_positive.append(p_examples)
+    all_negative.append(n_examples)
+
 
 
     # get the features using the ground truth rois
-    train_img_features = feature_extraction(filter_bank, rois)
-
+    #train_img_features, features_2D = feature_extraction(filter_bank, rois)
+    #all_filtered_patches = filtered_patch(features_2D)
+train_data = []
+train_label = []
+for im in range(len(all_positive)):
+    for p in range(9):
+        vector = np.reshape(all_positive[im][0][p],(np.size(all_positive[im][0][p])))
+        train_data.append(vector)
+        train_label.append(1)
+    for n in range(16):
+        vector = np.reshape(all_negative[im][0][n],(np.size(all_negative[im][0][n])))
+        train_data.append(vector)
+        train_label.append(0)
+    #feature_array=np.zeros((19, 13*13))
+    #for roi in range(19):
+    #    feature_array[roi] = np.reshape(p_examples[roi,0],(1,np.size(p_examples[roi,0])))
+       # for i in range(9):
+        #    for f in range(len(all_filtered_patches[roi])):
+         #       array = np.reshape((1, np.size()))
     # add the images features to the list of the features for all images
-    training_features.append(train_img_features)
+    #training_features.append(feature_array)
 
 
 #################################### Training the regressor ###################################
 
 # how to use the negative examples ???????????
-
-
+train_label_df=pd.DataFrame(train_label)
+train_data_df=pd.DataFrame(train_data)
 # AdaBoostRegressor
 # Choosing Decision Tree as the weak learner
-DTR = DecisionTreeRegressor()
-boostingClassifier = AdaBoostRegressor(n_estimators=50, base_estimator=DTR, learning_rate=1)
+DTR = DecisionTreeClassifier(max_depth=1)
+boostingClassifier = AdaBoostClassifier(n_estimators=50, base_estimator=DTR, learning_rate=1)
 
 # Printing all the parameters of Adaboost
 print(boostingClassifier)
 
 # Creating the model on Training Data - we might need to restructure the input data
-model_trained = boostingClassifier.fit(training_features, train_landmarks)
+model_trained = boostingClassifier.fit(train_data_df, train_label_df)
 
 # save the model's weights
 os.makedirs(args.model_save_dir, exist_ok=True)
@@ -286,7 +249,7 @@ print("Training is completed!")
 # https://thinkingneuron.com/how-to-create-the-adaboost-regression-model-in-python/ the following code is from here
 
 # Measuring Goodness of fit in Trainining data
-print('R2 Value:', metrics.r2_score(train_landmarks, model_trained.predict(training_features)))
+#print('R2 Value:', metrics.r2_score(train_landmarks, model_trained.predict(training_features)))
 
 """
 # Measuring accuracy on Testing Data
