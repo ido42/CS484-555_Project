@@ -204,6 +204,6 @@ def find_roi(image, eye_distance, left_eye_loc, right_eye_loc,
      #   cv2.imshow(str(i),roi_resized)
     #cv2.imshow("marked", img)
 
-    cv2.waitKey(0)
+    #cv2.waitKey(0)
 
     return rois
