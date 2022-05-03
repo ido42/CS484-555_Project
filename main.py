@@ -5,7 +5,6 @@ import cv2
 from PIL import Image
 import numpy as np
 import pandas as pd
-import numpy as np
 
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -108,29 +107,8 @@ num_landmark_coordinates = len(train_landmarks.columns)
 
 # define the used landmarks according to the paper (20 landmarks out of 68) - done in the preprocessing:LoadData.py file
 # landmarks = [8, 17, 21, 22, 26, 30, 31, 35, 36, 37, 39, 41, 42, 44, 45, 46, 48, 51, 54, 57]
-""" OLD CODE 
-detect the faces
-face_img = detect_face(imagePath="image.png")
-
-#cv2.imshow("face", face_img)
-#cv2.waitKey(0)
-
-# percent by which the image is resized
-scale_percent = 100
-
-# calculate the 50 percent of original dimensions
-width = int(face_img.shape[1] * scale_percent / 100)
-height = int(face_img.shape[0] * scale_percent / 100)
-
-# dsize
-dsize = (width, height)
-
-# resize image
-face_img = cv2.resize(face_img, dsize)
-"""
 
 no_train_imgs = train_images.shape[0]
-
 print(train_landmarks)
 
 # define a list to store the features for all the training images
@@ -161,23 +139,6 @@ for i in range(len(train_nums)):
     bw_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
     # cv2.imshow("orig_img ", bw_img)
     # cv2.waitKey()
-    ###########################################  OLD CODE  must be put in a function ###############################################
-    # (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x)=find_initial_points(bw_img)
-
-    # all_rois = find_roi(bw_img, ED, (y_left, x_left - 10), (y_right, x_right_real - 10), (mouth_y, mouth_x - 10))
-
-    # cv2.imwrite("face 3 detected.png",face_img)
-
-    # mouthlen_div3 = int((x_right_real-x_left)/5)
-    # bw_copy = cv2.rectangle(bw_copy, (x_left-2*mouthlen_div3,int((y_left+0.85*ED+mouth_y)/2) ), (x_left+mouthlen_div3,int((y_left+1.5*ED+mouth_y)/2)), 255, 3)
-    # bw_copy = cv2.rectangle(bw_copy, (x_right_real-2*mouthlen_div3,int((y_left+0.85*ED+mouth_y)/2) ), (x_right_real+mouthlen_div3,int((y_left+1.5*ED+mouth_y)/2)), 255, 3)
-    # bw_copy = cv2.rectangle(bw_copy, (x_left-10,y_left-20 ), (int((x_right_real+x_left)/2)-10,y_left+20), 255, 3)
-
-    # bw_copy = cv2.rectangle(bw_copy, (int(0.85*ED),int(x_left-2*mouthlen_div3)), (int(1.5*ED+mouth_y),int(mouth_x-mouthlen_div3)), 255, 3)
-    # cv2.imshow("mouth rct ", bw_copy)
-    # cv2.waitKey(0)
-
-    # cv2.imwrite("roi detected.png",bw_copy)
 
     ####################################  Training examples generation #####################################################
     p_examples = np.zeros((19, 9, 13, 13))  # positive patches 13x13
@@ -256,41 +217,44 @@ for t_img in test_images:
     (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x)=find_initial_points(bw_img)
     ED = x_right-x_left
 
-    all_rois = find_roi(bw_img, ED, (y_left, x_left - 10), (y_right, x_right - 10), (mouth_y, mouth_x - 10))
+    #all_rois = find_roi(bw_img, ED, (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x))
 
-    cv2.imwrite("face 3 detected.png",t_img)
+    #cv2.imwrite("face 3 detected.png",t_img)
 
-    mouthlen_div3 = int((x_right-x_left)/5)
+    #mouthlen_div3 = int((x_right-x_left)/5)
    # bw_copy = cv2.rectangle(bw_copy, (x_left-2*mouthlen_div3,int((y_left+0.85*ED+mouth_y)/2) ), (x_left+mouthlen_div3,int((y_left+1.5*ED+mouth_y)/2)), 255, 3)
    # bw_copy = cv2.rectangle(bw_copy, (x_right-2*mouthlen_div3,int((y_left+0.85*ED+mouth_y)/2) ), (x_right+mouthlen_div3,int((y_left+1.5*ED+mouth_y)/2)), 255, 3)
    # bw_copy = cv2.rectangle(bw_copy, (x_left-10,y_left-20 ), (int((x_right+x_left)/2)-10,y_left+20), 255, 3)
 
-    bw_copy = cv2.rectangle(bw_copy, (int(0.85*ED),int(x_left-2*mouthlen_div3)), (int(1.5*ED+mouth_y),int(mouth_x-mouthlen_div3)), 255, 3)
+    #bw_copy = cv2.rectangle(bw_copy, (int(0.85*ED),int(x_left-2*mouthlen_div3)), (int(1.5*ED+mouth_y),int(mouth_x-mouthlen_div3)), 255, 3)
     #cv2.imshow("mouth rct ", bw_copy)
     # cv2.waitKey(0)
 
-    cv2.imwrite("roi_detected.png",bw_copy)
+    #cv2.imwrite("roi_detected.png",bw_copy)
 
     ROIS = find_roi(bw_img, ED, (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x))
     test_roi= ROIS[6]
 
     preds= np.zeros((25, 25))
-    for i in range(6, 30):
-        for j in range(6, 30):
+    for i in range(6, 31):
+        for j in range(6, 31):
             t_patch = test_roi[i-6:i+7, j-6:j+7]
             t_patch = np.reshape(t_patch, (1, np.size(t_patch)))
-            pred = boostingClassifier.predict(t_patch)
-            preds[i, j] = pred
+            pred = boostingClassifier.predict_proba(t_patch)
+            preds[i-6, j-6] = pred[:,1]
 
-
-    max_pred = np.argmax(preds)
-    p_x, p_y = max_pred
-    p_x=p_x+6
-    p_y = p_y + 6
-    bw_img = cv2.circle(bw_img, (test_landmarks[0,0],test_landmarks[0,1]), radius=0, color=255, thickness=5)
-    marked_roi=cv2.circle(test_roi,(p_x, p_y) , radius=0, color=255, thickness=5)
-    cv2.imshow("original",bw_img)
-    cv2.imshow("predicted",marked_roi)
+    try:
+        min_val, max_val, min_indx, max_indx = cv2.minMaxLoc(preds)
+        max_pred = np.argmax(preds)
+        p_x, p_y = max_indx
+        p_x=p_x+6
+        p_y = p_y + 6
+        marked_roi=cv2.circle(test_roi, (p_x, p_y), radius=0, color=255, thickness=5)
+    except:
+        marked_roi=test_roi
+    bw_img = cv2.circle(bw_img, (test_landmarks[0, 0], test_landmarks[0, 1]), radius=0, color=255, thickness=5)
+    cv2.imshow("original", bw_img)
+    cv2.imshow("predicted", marked_roi)
     cv2.waitKey(0)
 
 
