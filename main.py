@@ -87,7 +87,7 @@ test_images_dir = os.path.join(test_directory, "images")
 test_landmarks_path = os.path.join(test_directory, "landmarks.csv")
 
 # generate the Gabor filters
-filter_bank = gabor_bank()
+# filter_bank = gabor_bank()
 
 # get  images
 train_images, train_nums = get_train_images(train_images_dir)
@@ -127,10 +127,10 @@ for i in range(len(train_nums)):
 
     # create an array to store the landmarks for further processing - p_landmarks
     p_landmarks = np.zeros((19, 2), dtype=np.int)
-    i = 0
+    j = 0
     for l_i in range(19):
-        p_landmarks[l_i] = (landmarks[i], landmarks[i + 1])
-        i = i + 2
+        p_landmarks[l_i] = (landmarks[j], landmarks[j + 1])
+        j = j + 2
 
     # print the landmarks for the ith image (to check them)
     print("p_land", p_landmarks)
@@ -141,8 +141,8 @@ for i in range(len(train_nums)):
     # cv2.waitKey()
 
     ####################################  Training examples generation #####################################################
-    p_examples = np.zeros((19, 9, 13, 13))  # positive patches 13x13
-    n_examples = np.zeros((19, 16, 13, 13))  # negative patches 13x13
+    p_examples = np.zeros((19, 9, 49, 13, 13)).astype('float32')  # positive patches 13x13
+    n_examples = np.zeros((19, 16, 49, 13, 13)).astype('float32')  # negative patches 13x13
     rois = np.zeros((19, 37, 37))  # 37x37 roi around the ground truth feature point
     bw_copy = bw_img.copy()
 
@@ -154,39 +154,50 @@ for i in range(len(train_nums)):
             p_examples[l], n_examples[l], rois[l] = get_training_examples(bw_img, p_landmarks[l])
         except:
             pass
-    # cv2.imshow("marks",bw_copy)
-    # cv2.waitKey()
-
     all_positive.append(p_examples)
     all_negative.append(n_examples)
 
-    # get the features using the ground truth rois
-    # train_img_features, features_2D = feature_extraction(filter_bank, rois)
-    # all_filtered_patches = filtered_patch(features_2D)
-train_data = []
-train_label = []
-for im in range(len(all_positive)):
-    for p in range(9):
-        vector = np.reshape(all_positive[im][0][p], (np.size(all_positive[im][0][p])))
-        train_data.append(vector)
-        train_label.append(1)
-    for n in range(16):
-        vector = np.reshape(all_negative[im][0][n], (np.size(all_negative[im][0][n])))
-        train_data.append(vector)
-        train_label.append(0)
-    # feature_array=np.zeros((19, 13*13))
-    # for roi in range(19):
-    #    feature_array[roi] = np.reshape(p_examples[roi,0],(1,np.size(p_examples[roi,0])))
-    # for i in range(9):
-    #    for f in range(len(all_filtered_patches[roi])):
-    #       array = np.reshape((1, np.size()))
-    # add the images features to the list of the features for all images
-    # training_features.append(feature_array)
 
 #################################### Training the regressor ###################################
 
-train_label_df = pd.DataFrame(train_label)
-train_data_df = pd.DataFrame(train_data)
+for landmark in range(19):
+    train_data = []
+    train_label = []
+    # AdaBoostRegressor
+    # Choosing Decision Tree as the weak learner
+    DT = DecisionTreeClassifier(max_depth=1)
+    boostingClassifier = AdaBoostClassifier(n_estimators=50, base_estimator=DT, learning_rate=1)
+    # Printing all the parameters of Adaboost
+    print(boostingClassifier)
+
+    for im in range(len(all_positive)):
+        for p in range(9):
+            vector = np.reshape(all_positive[im][landmark][p], (np.size(all_positive[im][landmark][p])))
+            train_data.append(vector)
+            train_label.append(1)
+        for n in range(16):
+            vector = np.reshape(all_negative[im][landmark][n], (np.size(all_negative[im][landmark][n])))
+            train_data.append(vector)
+            train_label.append(0)
+    train_label_df = pd.DataFrame(train_label)
+    train_data_df = pd.DataFrame(train_data)
+
+    # Creating the model on Training Data - we might need to restructure the input data
+    train_label_df = np.ravel(train_label_df)
+    model_trained = boostingClassifier.fit(train_data_df, train_label_df)
+
+    # save the model's weights
+    os.makedirs(args.model_save_dir, exist_ok=True)
+    # model_save_path = os.path.join(args.model_save_dir, f"boosting_{args.dataset}.model")
+    model_save_path = os.path.join(args.model_save_dir, f"landmark {landmark}_{args.dataset}.model")
+    save_model(boostingClassifier, model_save_path)
+    print("The model is saved to:", model_save_path)
+
+print("Training is completed!")
+
+#################################### Training the regressor ###################################
+
+
 # AdaBoostRegressor
 # Choosing Decision Tree as the weak learner
 DT = DecisionTreeClassifier(max_depth=1)
@@ -201,64 +212,11 @@ model_trained = boostingClassifier.fit(train_data_df, train_label_df)
 
 # save the model's weights
 os.makedirs(args.model_save_dir, exist_ok=True)
-model_save_path = os.path.join(args.model_save_dir, f"boosting_{args.dataset}.model")
+#model_save_path = os.path.join(args.model_save_dir, f"boosting_{args.dataset}.model")
+model_save_path = os.path.join(args.model_save_dir, f"with_gabor_{args.dataset}.model")
 save_model(boostingClassifier, model_save_path)
 print("The model is saved to:", model_save_path)
 print("Training is completed!")
-
-####################################   Testing  #####################################################
-
-for t_img in test_images:
-    # convert to grayscale
-    bw_img = cv2.cvtColor(t_img, cv2.COLOR_BGR2GRAY)
-    cv2.imshow("orig_img ", bw_img)
-    cv2.waitKey()
-    ###########################################  OLD CODE  must be put in a function ###############################################
-    (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x)=find_initial_points(bw_img)
-    ED = x_right-x_left
-
-    #all_rois = find_roi(bw_img, ED, (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x))
-
-    #cv2.imwrite("face 3 detected.png",t_img)
-
-    #mouthlen_div3 = int((x_right-x_left)/5)
-   # bw_copy = cv2.rectangle(bw_copy, (x_left-2*mouthlen_div3,int((y_left+0.85*ED+mouth_y)/2) ), (x_left+mouthlen_div3,int((y_left+1.5*ED+mouth_y)/2)), 255, 3)
-   # bw_copy = cv2.rectangle(bw_copy, (x_right-2*mouthlen_div3,int((y_left+0.85*ED+mouth_y)/2) ), (x_right+mouthlen_div3,int((y_left+1.5*ED+mouth_y)/2)), 255, 3)
-   # bw_copy = cv2.rectangle(bw_copy, (x_left-10,y_left-20 ), (int((x_right+x_left)/2)-10,y_left+20), 255, 3)
-
-    #bw_copy = cv2.rectangle(bw_copy, (int(0.85*ED),int(x_left-2*mouthlen_div3)), (int(1.5*ED+mouth_y),int(mouth_x-mouthlen_div3)), 255, 3)
-    #cv2.imshow("mouth rct ", bw_copy)
-    # cv2.waitKey(0)
-
-    #cv2.imwrite("roi_detected.png",bw_copy)
-
-    ROIS = find_roi(bw_img, ED, (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x))
-    test_roi= ROIS[6]
-
-    preds= np.zeros((25, 25))
-    for i in range(6, 31):
-        for j in range(6, 31):
-            t_patch = test_roi[i-6:i+7, j-6:j+7]
-            t_patch = np.reshape(t_patch, (1, np.size(t_patch)))
-            pred = boostingClassifier.predict_proba(t_patch)
-            preds[i-6, j-6] = pred[:,1]
-
-    try:
-        min_val, max_val, min_indx, max_indx = cv2.minMaxLoc(preds)
-        max_pred = np.argmax(preds)
-        p_x, p_y = max_indx
-        p_x=p_x+6
-        p_y = p_y + 6
-        marked_roi=cv2.circle(test_roi, (p_x, p_y), radius=0, color=255, thickness=5)
-    except:
-        marked_roi=test_roi
-    bw_img = cv2.circle(bw_img, (test_landmarks[0, 0], test_landmarks[0, 1]), radius=0, color=255, thickness=5)
-    cv2.imshow("original", bw_img)
-    cv2.imshow("predicted", marked_roi)
-    cv2.waitKey(0)
-
-
-
 
 """
 # Measuring accuracy on Testing Data

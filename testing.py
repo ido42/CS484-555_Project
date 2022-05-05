@@ -14,12 +14,12 @@ from FeatureExtraction import *
 def get_test_images(images_dir):
     print("Reading the images from the dataset.")
     images = []
-    correct_img = [0,1,4,6,9,10,11,13,18,19,20,21,22,23,25,27,28,29,31,32,33,36,37,38,41,44,45,46,49,50,53,55,57,60,61,
+    correct_img = [1,6,9,10,11,13,18,19,20,21,22,23,25,27,28,29,31,32,33,36,37,38,41,44,45,46,49,50,53,55,57,60,61,
                     62,64,68,73,80,83,84,87,88,89,90,92,94,95,96,97,98,99,102,104,114,115,116,117,121,123,131,132,139,
                    140,141,142,143,149,150,151,153,157,158,159,160,162,163,164,173,176,182,183,200,203,205,207,208,209,213,216,217]
     for i in correct_img:
         image_file=os.listdir(images_dir)[i]
-    #for image_file in os.listdir(images_dir):
+    # for image_file in os.listdir(images_dir):
         image_path = os.path.join(images_dir, image_file)
         image = Image.open(image_path)
         images.append(image)
@@ -43,8 +43,8 @@ test_images_dir = os.path.join(test_directory, "images")
 test_landmarks_path = os.path.join(test_directory, "landmarks.csv")
 
 # load the model from disk
-filename = os.path.join(args.model_save_dir, f"boosting_{args.dataset}.model")
-boostingClassifier = pickle.load(open(filename, 'rb'))
+#filename = os.path.join(args.model_save_dir, f"with_gabor_{args.dataset}.model")
+#boostingClassifier = pickle.load(open(filename, 'rb'))
 
 # generate the Gabor filters
 filter_bank = gabor_bank()
@@ -63,7 +63,7 @@ print(test_landmarks)
 print("Testing has started!")
 
 ####################################  Testing  #####################################################
-test_landmarks_np=np.zeros((len(test_nums),38))
+test_landmarks_np = np.zeros((len(test_nums),38))
 # iterate over the training images
 for i in range(len(test_nums)):
     # get the corresponding landmarks
@@ -74,38 +74,54 @@ for i in range(len(test_nums)):
 
 
 for t in range(len(test_images)):
-    t_img=test_images[t]
+    t_img = test_images[t]
     # convert to grayscale
     bw_img = cv2.cvtColor(t_img, cv2.COLOR_BGR2GRAY)
-    #cv2.imshow("orig_img ", bw_img)
-    #cv2.waitKey()
-    (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x)=find_initial_points(bw_img)
+    # cv2.imshow("orig_img ", bw_img)
+    # cv2.waitKey()
+    (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x), degree = find_initial_points(bw_img)
     ED = x_right-x_left
 
-    ROIS = find_roi(bw_img, ED, (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x))
-    test_roi= ROIS[6]
+    ROIS = find_roi(bw_img, ED, (y_left, x_left), (y_right, x_right), (mouth_y, mouth_x),degree)
+    flt_ROIs = []
 
-    preds= np.zeros((25, 25))
-    for i in range(6, 31):
-        for j in range(6, 31):
-            t_patch = test_roi[i-6:i+7, j-6:j+7]
-            t_patch = np.reshape(t_patch, (1, np.size(t_patch)))
-            pred = boostingClassifier.predict_proba(t_patch)
-            preds[i-6, j-6] = pred[:, 1]
+    landmarks_ordered = [6, 4, 5, 7, 16, 12, 13, 0, 8, 2, 10, 3, 9, 1, 11, 14, 17, 15, 18]
+    #for roi in range(len(ROIS)):
+    #    cv2.imshow(str(roi),ROIS[landmarks_ordered[roi]])
+    #cv2.waitKey(0)
+    c=0
 
-    try:
+    for l in landmarks_ordered:
+        # load the model from disk
+        filename = os.path.join(args.model_save_dir, f"landmark {c}_{args.dataset}.model")
+        boostingClassifier = pickle.load(open(filename, 'rb'))
+
+        test_roi = ROIS[l]
+        filtered_test_roi = feature_extraction1(filter_bank, test_roi)
+        preds = np.zeros((25, 25))
+        for i in range(6, 31):
+            for j in range(6, 31):
+                t_patch_vect = np.zeros((1, 49*13*13))
+                for f in range(len(filtered_test_roi)):
+                    t_patch = filtered_test_roi[f][i-6:i+7, j-6:j+7]
+                    t_patch_vect[:, f*169:(f+1)*169] = np.reshape(t_patch, (1, np.size(t_patch)))
+                pred = boostingClassifier.predict_proba(t_patch_vect)
+                preds[i-6, j-6] = pred[:, 1]
+
+
         min_val, max_val, min_indx, max_indx = cv2.minMaxLoc(preds)
         max_pred = np.argmax(preds)
         p_x, p_y = max_indx
         p_x = p_x+6
         p_y = p_y + 6
-        marked_roi = cv2.circle(test_roi, (p_y, p_x), radius=0, color=0, thickness=5)
-    except:
-        marked_roi=test_roi
+        test_roi = cv2.circle(test_roi, (p_y, p_x), radius=0, color=0, thickness=5)
+        cv2.imshow(str(l), test_roi)
 
-    bw_img = cv2.circle(bw_img, (int(test_landmarks_np[t, 0]), int(test_landmarks_np[t, 1])), radius=0, color=255, thickness=5)
-    cv2.imshow("original", bw_img)
-    #cv2.imshow("predicted", marked_roi)
+        bw_img = cv2.circle(bw_img, (int(test_landmarks_np[t, c*2]), int(test_landmarks_np[t, c*2+1])), radius=0, color=255, thickness=5)
+        c = c + 1
+        cv2.imshow("original", bw_img)
+
     cv2.waitKey()
+
 
 

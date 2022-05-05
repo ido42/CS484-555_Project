@@ -65,7 +65,6 @@ def gabor_bank(size=13, no_orientation=8, no_freq=6):
 
 def feature_extraction(filters_bank, ROIs):
     """
-
     :param filters_bank: a list consisting of gabor filters (in np array form), for this project the length is generally 48
     :param ROIs: a list of images ROIs (in np array form), for this project the length is generally 20
     :return:  in the result, each row belongs to one feature, each of them are 49 linearized images first is original, rest is with filters
@@ -110,7 +109,6 @@ def feature_extraction(filters_bank, ROIs):
             feature_vectors[idx_roi, (f + 1) * roi_size ** 2:(f + 2) * roi_size ** 2] = np.reshape(f_roi, (1, np.size(f_roi)))
 
             # check the filtered ROI
-            """"""
 
             # resize the filter to display it in more details
             scale_percent = 500  # define the desired scale
@@ -128,8 +126,49 @@ def feature_extraction(filters_bank, ROIs):
             print("Filtering ROI " + str(idx_roi) + " with filter " + str(f))
 
         filtered_ROIs_2D.append(filtered_roi_2D)
-        #cv2.waitKey()
+
     return feature_vectors,filtered_ROIs_2D
+
+def feature_extraction1(filters_bank, ROI):
+    """
+    :param filters_bank: a list consisting of gabor filters (in np array form), for this project the length is
+                generally 48
+    :param ROIs: a list of images ROIs (in np array form), for this project the length is generally 20
+    :return:  in the result, each row belongs to one feature, each of them are 49 linearized images first is original,
+                rest is with filters
+    """
+
+    # define the filter's parameters
+    no_filters = len(filters_bank)
+
+    # create a list for the 2D filtered ROIs
+    filtered_roi_2D = []
+
+    # store the unfiltered(original) gray scale values of the current ROI as a 2D array
+    filtered_roi_2D.append(ROI)
+
+    # iterate over the filters
+    for f in range(no_filters):
+        # filter the current ROI using the Gabor filters
+        f_roi = cv2.filter2D(src=ROI.astype('float64'), ddepth=-1, kernel=np.abs(filters_bank[f]))
+        f_roi=f_roi.astype('float32')
+        # store all the filtered ROI's features as a 2D arrays in the filtered_roi list
+        filtered_roi_2D.append(f_roi)
+
+        # check the filtered ROI
+        # resize the filter to display it in more details
+        scale_percent = 500  # define the desired scale
+        width = int(f_roi.shape[1] * scale_percent / 100)
+        height = int(f_roi.shape[0] * scale_percent / 100)
+
+        # resize the filtered ROI
+        f_roi = cv2.resize(f_roi / np.max(f_roi) * 255, (width, height))
+
+        # display the filtered ROI
+        #cv2.imshow("Filter:" + str(f), f_roi.astype('uint8'))
+        #cv2.waitKey()
+
+    return filtered_roi_2D
 
 
 

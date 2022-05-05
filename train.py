@@ -11,8 +11,8 @@ from sklearn.ensemble import AdaBoostRegressor
 from sklearn.tree import DecisionTreeRegressor
 import cv2
 import pickle
-
-
+from FeatureExtraction import *
+fb = gabor_bank()
 def get_images(images_dir):
     print("Reading the images from the dataset.")
     images = []
@@ -29,9 +29,66 @@ def save_model(model, model_save_path):
         pickle.dump(model, model_save_file)
 
 
-def get_training_examples(image, landmark):
+def positive_ex(filtered_ROIs):
+    l = [12, 13, 14]
+    positive_ex = []
+    filt_num=len(filtered_ROIs)
 
+    for x in l:
+        for y in l:
+            filtered_ex=np.zeros((filt_num,13,13))
+            for f in range(filt_num):
+                filtered_ex[f, :, :] = filtered_ROIs[f][y:y + 13, x:x + 13]
+            positive_ex.append(filtered_ex)
+    return positive_ex
+
+
+def negative_ex(filtered_ROIs):
+    n_eg = []
+    x = 19
+    y = 19
+    half_roi_size = 6
+    random_locs=[]
+    filt_num = len(filtered_ROIs)
+    while len(random_locs) != 8:
+        x_err=random.randint(-2, 2)
+        y_err=random.randint(-2, 2)
+        if not(abs(x_err) == 1 and abs(y_err) == 1):
+            random_locs.append((x+x_err, y+y_err))
+    while len(random_locs) != 16:
+        x_rand = random.randint(-10,10)
+        y_rand = random.randint(-10,10)
+        if not(abs(x_rand) <= 2 and abs(y_rand) <= 2):
+            random_locs.append((x+x_rand, y+y_rand))
+
+    for l in random_locs:
+        filtered_ex = np.zeros((filt_num, 13, 13))
+        for i in range(len(filtered_ROIs)):
+            f=filtered_ROIs[i]
+            x, y = l
+            filtered_ex[i] = f[x-half_roi_size:x + half_roi_size+1, y-half_roi_size:y+half_roi_size+1]
+
+        n_eg.append(filtered_ex)
+    return n_eg
+
+def get_training_examples(image, landmark, filter_bank = fb):
+    # generate the Gabor filters
+
+
+    # true roi
     x, y = landmark
+    true_roi = image[x - 18:x + 19, y - 18:y + 19]
+    pad_x = 37 - np.shape(true_roi)[1]
+    pad_y = 37 - np.shape(true_roi)[0]
+    true_roi=np.pad(true_roi, ((0, pad_y), (0, pad_x)), 'constant')
+
+
+    # get the features using the ground truth rois
+    features_2D = feature_extraction1(filter_bank, true_roi)
+    #all_filtered_patches = filtered_patch(features_2D)
+    p_eg=positive_ex(features_2D)
+    n_eg=negative_ex(features_2D)
+    """
     half_roi_size = 6
     gt = image[x - half_roi_size:x + half_roi_size+1, y - half_roi_size:y + half_roi_size+1]
     x1 = x + 1
@@ -46,35 +103,36 @@ def get_training_examples(image, landmark):
     p6 = image[x2 - half_roi_size:x2 + half_roi_size+1, y2 - half_roi_size:y2 + half_roi_size+1]
     p7 = image[x1 - half_roi_size:x1 + half_roi_size+1, y2 - half_roi_size:y2 + half_roi_size+1]
     p8 = image[x2 - half_roi_size:x2 + half_roi_size+1, y1 - half_roi_size:y1 + half_roi_size+1]
+    """
+    """
     print(x,y)
     print(image.shape)
     print(x1 - half_roi_size)
     print(x1 + half_roi_size)
     print(y1 - half_roi_size)
     print(y1 + half_roi_size)
-
-
+    """
+    """
     # positive examples
-
     p_eg = np.array([gt, p1, p2, p3, p4, p5, p6, p7, p8])
     p_eg_padded_list=[]
     for reg in p_eg:
         pad_x = 13-np.shape(reg)[1]
         pad_y = 13-np.shape(reg)[0]
         p_eg_padded_list.append(np.pad(reg, ((0, 0), (pad_y, pad_x)), 'constant'))
-    print("p_eg", p_eg)
-    print("p_eg", p_eg.shape)
+    # print("p_eg", p_eg)
+    # print("p_eg", p_eg.shape)
     p_eg_padded=np.asarray(p_eg_padded_list)
 
     n_eg=[]
-    while len(n_eg)!=8:
+    while len(n_eg) != 8:
         x_err=random.randint(-2,2)
         y_err=random.randint(-2,2)
         ex = image[x+x_err - half_roi_size:x+x_err + half_roi_size + 1, y+y_err - half_roi_size:y+y_err + half_roi_size + 1]
         pad_x = 13 - np.shape(ex)[1]
         pad_y = 13 - np.shape(ex)[0]
         ex = np.pad(ex, ((0, 0), (pad_y, pad_x)), 'constant')
-        if not(abs(x_err)==1and(y_err)==1):
+        if not(abs(x_err) == 1 and abs(y_err) == 1):
             n_eg.append(ex)
     while len(n_eg)!=16:
         x_rand=random.randint(-15,15)
@@ -86,6 +144,7 @@ def get_training_examples(image, landmark):
         if not(abs(x_rand)<=2and abs(y_rand)<=2):
             n_eg.append(ex)
     n_eg_fin=np.asarray(n_eg)
+    """
     """
     # the first set of negative examples 2 pixel apart from the ground truth
     x3 = x + 2
@@ -119,13 +178,7 @@ def get_training_examples(image, landmark):
     # negative examples
    # n_eg = np.array([n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16])
 
-    # true roi
-    true_roi = image[x - 18:x + 19, y - 18:y + 19]
-    pad_x = 37 - np.shape(true_roi)[1]
-    pad_y = 37 - np.shape(true_roi)[0]
-    true_roi=np.pad(true_roi, ((0, 0), (pad_y, pad_x)), 'constant')
-
-    return p_eg_padded, n_eg_fin, true_roi#, n_eg
+    return p_eg, n_eg, true_roi  # n_eg
 
 
 def filtered_patch(filtered_ROIs):

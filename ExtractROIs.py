@@ -5,7 +5,7 @@ from scipy import signal
 import matplotlib.pyplot as plt
 from scipy.signal import chirp, find_peaks, peak_widths
 from FaceDetection import *
-from math import floor, ceil
+from math import floor, ceil, sin, cos,pi
 
 def find_pupil(image):
     # first find y
@@ -47,7 +47,7 @@ def rotate_face(img, left_pupil, right_pupil):
     (cX, cY) = (w // 2, h // 2)
     M = cv2.getRotationMatrix2D((cX, cY), degree, 1.0)
     rotated = cv2.warpAffine(img, M, (w, h))
-    return rotated
+    return rotated,degree
 
 def find_initial_points(bw_img):
     rows, cols = np.shape(bw_img)
@@ -77,10 +77,10 @@ def find_initial_points(bw_img):
 
     # the position of right pupil in the original image
     x_right_real = x_right + np.size(upper_left[0])
-
+    degree=0
     # align the face so that the eye axis is parallel to horizon, if it is nearly parallel don't
     if abs(y_left - y_right) > 1:
-        aligned = rotate_face(bw_img, (y_left, x_left), (y_right, x_right_real))
+        aligned, degree = rotate_face(bw_img, (y_left, x_left), (y_right, x_right_real))
         upper_face = aligned[0:int(np.ceil(rows / 2)), :]
         upper_left = upper_face[:, 0:int(np.ceil(cols / 2))]
         upper_right = upper_face[:, int(np.ceil(cols / 2)):]
@@ -90,11 +90,11 @@ def find_initial_points(bw_img):
         #print(y_right, ", ", x_right)
         # cv2.imshow("aligned", aligned)
         bw_img = aligned
-
+    face_img=bw_img.copy()
     #cv2.circle(copy_left, (x_left, y_left), radius=0, color=(0, 0, 255), thickness=5)
     #cv2.circle(copy_right, (x_right, y_right), radius=0, color=(0, 255, 0), thickness=5)
-    #cv2.circle(face_img, (x_left, y_left), radius=0, color=(0, 0, 255), thickness=5)
-    #cv2.circle(face_img, (x_right_real, y_right), radius=0, color=(0, 0, 255), thickness=5)
+    cv2.circle(face_img, (x_left, y_left), radius=0, color=(0, 0, 255), thickness=5)
+    cv2.circle(face_img, (x_right_real, y_right), radius=0, color=(0, 0, 255), thickness=5)
 
     # cv2.imshow("eye l", copy_left)
     # cv2.imshow("eye r", copy_right)
@@ -137,13 +137,13 @@ def find_initial_points(bw_img):
 
     widest_peak = peaks[np.where(results_half[0] == np.max(results_half[0]))][0]
     mouth_y, mouth_x = int(widest_peak + y_left + 0.85 * ED), int((x_right_real + x_left) / 2)
-    # cv2.circle(face_img, (mouth_x, mouth_y), radius=0, color=(255, 0, 0), thickness=5)
-    # cv2.imshow("mouth ", face_img)
-    # cv2.waitKey(0)
-    return (y_left, x_left), (y_right, x_right_real), (mouth_y, mouth_x)
+    cv2.circle(face_img, (mouth_x, mouth_y), radius=0, color=(255, 0, 0), thickness=5)
+    cv2.imshow("mouth ", face_img)
+    cv2.waitKey(0)
+    return (y_left, x_left), (y_right, x_right_real), (mouth_y, mouth_x), degree
 
 def find_roi(image, eye_distance, left_eye_loc, right_eye_loc,
-             mouth_loc):  # eye distance is integer, rest are tuples (y,x)
+             mouth_loc,degree):  # eye distance is integer, rest are tuples (y,x)
     rows, cols, = np.shape(image)  # size of image
     roi_size = 37
     # center locations of the features
@@ -175,30 +175,46 @@ def find_roi(image, eye_distance, left_eye_loc, right_eye_loc,
 
     locs = [A_loc, A1_loc, B_loc, B1_loc, D_loc, D1_loc, E_loc, E1_loc, F_loc, F1_loc, G_loc, G1_loc, H_loc, H1_loc,
             I_loc, J_loc, N_loc, K_loc, L_loc]
+    locs_rot = []
+    rad = degree*pi/180
+    py,px = 128,128
+    for l in locs: # to make it up for the rotation in the earlier phase
+        y, x = l
+        y,x=y-py,x-px
+        y1 = -int(x*sin(-rad)-y*cos(-rad))
+        x1 = int(x*cos(-rad)+y*sin(-rad))
+        y1+=py
+        x1+=px
+        locs_rot.append((y1, x1))
     rois = []
     i = 0
-    for loc_tuple in locs:
+    img = image.copy()
+    for loc_tuple in locs_rot:
         roi = image[int(loc_tuple[0] - np.floor(roi_size / 2)):int(loc_tuple[0] + np.ceil(roi_size / 2)),
               int(loc_tuple[1] - np.floor(roi_size / 2)):int(loc_tuple[1] + np.ceil(roi_size / 2))]
-        rois.append(roi)
-        img = image.copy()
-        print(roi.shape)
+
+        pad_x = roi_size - np.shape(roi)[1]
+        pad_y = roi_size - np.shape(roi)[0]
+        true_roi = np.pad(roi, ((0, pad_y), (0, pad_x)), 'constant')
+        rois.append(true_roi)
+
+        print(true_roi.shape)
 
 
-        cv2.circle(img, (loc_tuple[1], loc_tuple[0]), radius=0, color=0, thickness=5)
-        #cv2.imshow(f'image', img)
-        #cv2.waitKey(0)
+        img=cv2.circle(img, (loc_tuple[1], loc_tuple[0]), radius=0, color=0, thickness=5)
+    cv2.imshow(f'image', img)
+    cv2.waitKey(0)
 
-        # percent by which the image is resized
-        scale_percent = 500
+    # percent by which the image is resized
+    #scale_percent = 500
 
-        # calculate the 500 percent of original dimensions
-        width = int(roi.shape[1] * scale_percent / 100)
-        height = int(roi.shape[0] * scale_percent / 100)
+    # calculate the 500 percent of original dimensions
+    #width = int(roi.shape[1] * scale_percent / 100)
+    #height = int(roi.shape[0] * scale_percent / 100)
 
-        # dsize
-        dsize = (width, height)
-        i=i+1
+    # dsize
+    #dsize = (width, height)
+    #i=i+1
         # resize image
       #  roi_resized = cv2.resize(roi, dsize)
      #   cv2.imshow(str(i),roi_resized)
